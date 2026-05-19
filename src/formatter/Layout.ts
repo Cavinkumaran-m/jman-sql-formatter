@@ -11,9 +11,16 @@ export enum WS {
   MANDATORY_NEWLINE, // Adds single newline that can't be removed by NO_NEWLINE
   INDENT, // Adds indentation (as much as needed for current indentation level)
   SINGLE_INDENT, // Adds whitespace for single indentation step
+  GOD_COMPULSARY_NEWLINE,
 }
 
-export type LayoutItem = WS.SPACE | WS.SINGLE_INDENT | WS.NEWLINE | WS.MANDATORY_NEWLINE | string;
+export type LayoutItem =
+  | WS.SPACE
+  | WS.SINGLE_INDENT
+  | WS.NEWLINE
+  | WS.MANDATORY_NEWLINE
+  | WS.GOD_COMPULSARY_NEWLINE
+  | string;
 
 /**
  * API for constructing SQL string (especially the whitespace part).
@@ -50,6 +57,9 @@ export default class Layout {
           this.trimHorizontalWhitespace();
           this.addNewline(WS.MANDATORY_NEWLINE);
           break;
+        case WS.GOD_COMPULSARY_NEWLINE:
+          this.addNewline(WS.GOD_COMPULSARY_NEWLINE);
+          break;
         case WS.INDENT:
           this.addIndentation();
           break;
@@ -74,7 +84,7 @@ export default class Layout {
     }
   }
 
-  private addNewline(newline: WS.NEWLINE | WS.MANDATORY_NEWLINE) {
+  private addNewline(newline: WS.NEWLINE | WS.MANDATORY_NEWLINE | WS.GOD_COMPULSARY_NEWLINE) {
     if (this.items.length > 0) {
       switch (last(this.items)) {
         case WS.NEWLINE:
@@ -83,6 +93,9 @@ export default class Layout {
           break;
         case WS.MANDATORY_NEWLINE:
           // keep as is
+          break;
+        case WS.GOD_COMPULSARY_NEWLINE:
+          this.items.push(newline);
           break;
         default:
           this.items.push(newline);
@@ -117,6 +130,8 @@ export default class Layout {
         return ' ';
       case WS.NEWLINE:
       case WS.MANDATORY_NEWLINE:
+        return '\n';
+      case WS.GOD_COMPULSARY_NEWLINE:
         return '\n';
       case WS.SINGLE_INDENT:
         return this.indentation.getSingleIndent();

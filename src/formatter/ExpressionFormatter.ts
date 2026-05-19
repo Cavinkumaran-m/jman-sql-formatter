@@ -189,15 +189,26 @@ export default class ExpressionFormatter {
     this.formatNode(node.property);
   }
 
+  private shouldAlwaysExpandParenthesis(node: ParenthesisNode): boolean {
+    return node.children.some(child =>
+      [
+        NodeType.clause,
+        NodeType.set_operation,
+        NodeType.statement,
+        NodeType.case_expression,
+      ].includes(child.type)
+    );
+  }
+
   private formatParenthesis(node: ParenthesisNode) {
     const inlineLayout = this.formatInlineExpression(node.children);
 
-    if (inlineLayout) {
+    if (inlineLayout && !this.shouldAlwaysExpandParenthesis(node)) {
       this.layout.add(node.openParen);
       this.layout.add(...inlineLayout.getLayoutItems());
       this.layout.add(WS.NO_SPACE, node.closeParen, WS.SPACE);
     } else {
-      this.layout.add(node.openParen, WS.NEWLINE);
+      this.layout.add(node.openParen, WS.NEWLINE, WS.GOD_COMPULSARY_NEWLINE);
 
       if (isTabularStyle(this.cfg)) {
         this.layout.add(WS.INDENT);
@@ -250,11 +261,7 @@ export default class ExpressionFormatter {
   private formatClause(node: ClauseNode) {
     if (this.isOnelineClause(node)) {
       this.formatClauseInOnelineStyle(node);
-    } else if (isTabularStyle(this.cfg)) {
-      this.formatClauseInTabularStyle(node);
-    } else {
-      this.formatClauseInIndentedStyle(node);
-    }
+    } else this.formatClauseInIndentedStyle(node);
   }
 
   private isOnelineClause(node: ClauseNode): boolean {
@@ -266,11 +273,37 @@ export default class ExpressionFormatter {
   }
 
   private formatClauseInIndentedStyle(node: ClauseNode) {
-    this.layout.add(WS.NEWLINE, WS.INDENT, this.showKw(node.nameKw), WS.NEWLINE);
-    this.layout.indentation.increaseTopLevel();
-    this.layout.add(WS.INDENT);
-    this.layout = this.formatSubExpression(node.children);
-    this.layout.indentation.decreaseTopLevel();
+    if (node.nameKw.text === 'FROM') {
+      this.layout.add(
+        WS.GOD_COMPULSARY_NEWLINE,
+        WS.GOD_COMPULSARY_NEWLINE,
+        WS.INDENT,
+        this.showKw(node.nameKw)
+      );
+      this.layout.add(WS.SPACE);
+      this.layout = this.formatSubExpression(node.children);
+      this.layout.add(WS.GOD_COMPULSARY_NEWLINE);
+      this.layout.indentation.decreaseTopLevel();
+    } else if (node.nameKw.text === 'SELECT') {
+      this.layout.add(
+        WS.GOD_COMPULSARY_NEWLINE,
+        WS.INDENT,
+        this.showKw(node.nameKw),
+        WS.GOD_COMPULSARY_NEWLINE,
+        WS.GOD_COMPULSARY_NEWLINE
+      );
+      this.layout.indentation.increaseTopLevel();
+      this.layout.add(WS.INDENT);
+      this.layout = this.formatSubExpression(node.children);
+      this.layout.indentation.decreaseTopLevel();
+    } else {
+      this.layout.add(WS.NEWLINE, WS.INDENT, this.showKw(node.nameKw), WS.NEWLINE);
+      this.layout.indentation.increaseTopLevel();
+      this.layout.add(WS.INDENT);
+      this.layout = this.formatSubExpression(node.children);
+      this.layout.indentation.decreaseTopLevel();
+      this.layout.add(WS.GOD_COMPULSARY_NEWLINE);
+    }
   }
 
   private formatClauseInOnelineStyle(node: ClauseNode) {
@@ -494,14 +527,11 @@ export default class ExpressionFormatter {
   }
 
   private formatJoin(node: KeywordNode) {
-    if (isTabularStyle(this.cfg)) {
-      // in tabular style JOINs are at the same level as clauses
-      this.layout.indentation.decreaseTopLevel();
-      this.layout.add(WS.NEWLINE, WS.INDENT, this.showKw(node), WS.SPACE);
-      this.layout.indentation.increaseTopLevel();
-    } else {
-      this.layout.add(WS.NEWLINE, WS.INDENT, this.showKw(node), WS.SPACE);
-    }
+    // in tabular style JOINs are at the same level as clauses
+    this.layout.add(WS.GOD_COMPULSARY_NEWLINE);
+    this.layout.indentation.decreaseTopLevel();
+    this.layout.add(WS.NEWLINE, WS.INDENT, this.showKw(node), WS.SPACE);
+    this.layout.indentation.increaseTopLevel();
   }
 
   private formatKeyword(node: KeywordNode) {
