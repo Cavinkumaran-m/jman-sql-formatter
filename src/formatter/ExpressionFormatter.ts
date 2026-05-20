@@ -72,6 +72,7 @@ export default class ExpressionFormatter {
   private inline = false;
   private nodes: AstNode[] = [];
   private index = -1;
+  private pendingJoinCondition = false;
 
   constructor({ cfg, dialectCfg, params, layout, inline = false }: ExpressionFormatterParams) {
     this.cfg = cfg;
@@ -248,14 +249,21 @@ export default class ExpressionFormatter {
     this.layout.add(WS.NEWLINE, WS.INDENT);
     this.formatNode(node.whenKw);
     this.layout = this.formatSubExpression(node.condition);
+    this.layout.add(WS.NEWLINE);
+    this.layout.indentation.increaseBlockLevel();
+    this.layout.add(WS.INDENT);
     this.formatNode(node.thenKw);
+    this.layout.indentation.decreaseBlockLevel();
     this.layout = this.formatSubExpression(node.result);
   }
 
   private formatCaseElse(node: CaseElseNode) {
-    this.layout.add(WS.NEWLINE, WS.INDENT);
+    this.layout.add(WS.NEWLINE);
+    this.layout.indentation.increaseBlockLevel();
+    this.layout.add(WS.INDENT);
     this.formatNode(node.elseKw);
     this.layout = this.formatSubExpression(node.result);
+    this.layout.indentation.decreaseBlockLevel();
   }
 
   private formatClause(node: ClauseNode) {
@@ -273,7 +281,16 @@ export default class ExpressionFormatter {
   }
 
   private formatClauseInIndentedStyle(node: ClauseNode) {
-    if (node.nameKw.text === 'FROM') {
+    if (node.nameKw.text === 'WITH') {
+      this.layout.add(
+        WS.GOD_COMPULSARY_NEWLINE,
+        WS.INDENT,
+        this.showKw(node.nameKw),
+        WS.GOD_COMPULSARY_NEWLINE,
+        WS.GOD_COMPULSARY_NEWLINE
+      );
+      this.layout = this.formatSubExpression(node.children);
+    } else if (node.nameKw.text === 'FROM') {
       this.layout.add(
         WS.GOD_COMPULSARY_NEWLINE,
         WS.GOD_COMPULSARY_NEWLINE,
@@ -374,7 +391,7 @@ export default class ExpressionFormatter {
 
   private formatComma(_node: CommaNode) {
     if (!this.inline) {
-      this.layout.add(WS.NO_SPACE, ',', WS.NEWLINE, WS.INDENT);
+      this.layout.add(WS.NO_SPACE, WS.NEWLINE, WS.INDENT, ',', WS.SPACE);
     } else {
       this.layout.add(WS.NO_SPACE, ',', WS.SPACE);
     }
@@ -514,6 +531,10 @@ export default class ExpressionFormatter {
   }
 
   private formatKeywordNode(node: KeywordNode): void {
+    if (this.shouldBreakJoinCondition(node)) {
+      return this.formatJoinCondition(node);
+    }
+
     switch (node.tokenType) {
       case TokenType.RESERVED_JOIN:
         return this.formatJoin(node);
@@ -527,11 +548,25 @@ export default class ExpressionFormatter {
   }
 
   private formatJoin(node: KeywordNode) {
+    this.pendingJoinCondition = true;
+
     // in tabular style JOINs are at the same level as clauses
     this.layout.add(WS.GOD_COMPULSARY_NEWLINE);
     this.layout.indentation.decreaseTopLevel();
     this.layout.add(WS.NEWLINE, WS.INDENT, this.showKw(node), WS.SPACE);
     this.layout.indentation.increaseTopLevel();
+  }
+
+  private shouldBreakJoinCondition(node: KeywordNode): boolean {
+    return (
+      this.pendingJoinCondition &&
+      (node.text.toUpperCase() === 'ON' || node.text.toUpperCase() === 'USING')
+    );
+  }
+
+  private formatJoinCondition(node: KeywordNode) {
+    this.pendingJoinCondition = false;
+    this.layout.add(WS.NEWLINE, WS.INDENT, this.showKw(node), WS.SPACE);
   }
 
   private formatKeyword(node: KeywordNode) {
