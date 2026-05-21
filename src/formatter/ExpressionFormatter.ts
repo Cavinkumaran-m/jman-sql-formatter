@@ -301,7 +301,7 @@ export default class ExpressionFormatter {
       this.layout = this.formatSubExpression(node.children);
       this.layout.add(WS.GOD_COMPULSARY_NEWLINE);
       this.layout.indentation.decreaseTopLevel();
-    } else if (node.nameKw.text === 'SELECT') {
+    } else if (node.nameKw.text.includes('SELECT')) {
       this.layout.add(
         WS.GOD_COMPULSARY_NEWLINE,
         WS.INDENT,
