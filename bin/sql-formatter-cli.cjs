@@ -20,7 +20,7 @@ class SqlFormatterCli {
   async run() {
     this.cfg = await this.readConfig();
     this.query = await this.getInput();
-    const formattedQuery = format(this.query, this.cfg).trim() + '\n';
+    const formattedQuery = format(this.query, {tabWidth: 4}).trim() + '\n';
     this.writeOutput(this.getOutputFile(this.args), formattedQuery);
   }
 
